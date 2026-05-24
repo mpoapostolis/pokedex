@@ -1,0 +1,542 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, "SF Mono", monospace;
+
+  --color-ink: #0a0b0e;
+  --color-panel: #15161c;
+  --color-panel-2: #1e2029;
+}
+
+:root {
+  /* Card hover tokens — a clear, characterful tilt, tuned in one place. */
+  --card-perspective: 1100px;
+  --card-tilt-rotation: 13deg;
+  --card-tilt-scale: 1.06;
+  --card-hover-z: 50;
+
+  /* Atmospheric depth tokens — translateZ values when the card tilts. */
+  --pop-out: 26px;
+  --pop-medium: 16px;
+  --pop-light: 8px;
+
+  /* Sibling fade — opacity for non-hovered cells in the grid. */
+  --fade-opacity: 0.6;
+  --fade-duration: 220ms;
+
+  /* Tilt motion tokens. */
+  --tilt-enter-duration: 80ms;
+  --tilt-exit-duration: 420ms;
+  --tilt-exit-easing: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --pop-duration: 320ms;
+
+  /* The Pokédex scanner-lens gradient — shared by the header lens and the
+     title-screen lens. */
+  --lens-gradient: radial-gradient(circle at 34% 30%, #bae6fd, #0ea5e9 44%, #075985);
+
+  /* Premium surface depth — a 1px highlight catching light along the top
+     edge, plus a soft ambient shadow. One token for every raised surface. */
+  --surface-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 2px 6px rgba(0, 0, 0, 0.45),
+    0 16px 32px -16px rgba(0, 0, 0, 0.65);
+}
+
+/* One source of truth for the keyboard-focus ring — replaces a class
+   triplet that had been copy-pasted onto ~14 interactive elements. */
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.55);
+    outline-offset: 2px;
+  }
+}
+
+/* The standard section panel — a rounded, hairline-bordered surface.
+   Pair with padding utilities, e.g. `panel p-5`. */
+@utility panel {
+  border-radius: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: var(--color-panel);
+  box-shadow: var(--surface-shadow);
+}
+
+/* A raised surface — the same depth as `panel`, for elements that bring
+   their own radius and border (the discovery cards, team member cards). */
+@utility raised {
+  box-shadow: var(--surface-shadow);
+}
+
+/* The shared type-badge pill — one geometry/weight/tracking for every type
+   chip: cards, the type filter, active-filter tags, the matchup panel.
+   Colour comes from typeBadgeStyle(); each consumer adds its own padding,
+   any border, and `uppercase` where the label is a type name. */
+@utility type-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 0.375rem;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+}
+
+/* A muted mono-caps caption — the column header, stat key, member-remove
+   button. Five sites; one token. */
+@utility mono-label {
+  @apply font-mono text-[10px] uppercase tracking-wider text-zinc-400;
+}
+
+/* The idle surface for an unpicked pill — type filter, active-filter tag,
+   team toggle. Consumers add the border-width keyword and their own text
+   colour; the surface tokens (border colour, background, hovers) live
+   here. */
+@utility pill-idle {
+  @apply border-white/10 bg-white/[0.05] hover:border-white/20 hover:bg-white/[0.08];
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--color-ink);
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: #e8e8ec;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgba(14, 165, 233, 0.32);
+  color: #f4f7fb;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a2c36;
+  border-radius: 6px;
+  border: 2px solid var(--color-ink);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3d4a;
+}
+
+summary {
+  list-style: none;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.25s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/* The card shell — perspective + the z-index lift on hover. Both come
+   from CSS vars so we tune them in one place. */
+.card-shell {
+  position: relative;
+  height: 100%;
+  perspective: var(--card-perspective);
+}
+.card-shell:hover {
+  z-index: var(--card-hover-z);
+}
+
+/* When the grid has a hovered card, dim every other cell — the focused
+   card stands out without needing extra chrome. */
+.fade-siblings:hover > * {
+  opacity: var(--fade-opacity);
+  transition: opacity var(--fade-duration) ease-out;
+}
+.fade-siblings:hover > *:hover {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fade-siblings:hover > * {
+    opacity: 1;
+  }
+}
+
+/* Pokédex device chrome — the scanner lens and status LEDs in the header. */
+.pokedex-lens {
+  background: var(--lens-gradient);
+  box-shadow:
+    inset 0 1px 2px rgba(255, 255, 255, 0.55),
+    inset 0 -2px 5px rgba(0, 0, 0, 0.45),
+    0 0 10px rgba(14, 165, 233, 0.5);
+  animation: pokedex-lens-pulse 2.8s ease-in-out infinite;
+}
+@keyframes pokedex-lens-pulse {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.12);
+  }
+}
+.pokedex-led {
+  box-shadow: 0 0 5px currentColor;
+}
+.pokedex-led-blink {
+  animation: pokedex-led-blink 1.5s steps(1, end) infinite;
+}
+@keyframes pokedex-led-blink {
+  0%,
+  55% {
+    opacity: 1;
+  }
+  56%,
+  100% {
+    opacity: 0.2;
+  }
+}
+
+/* ============================================================
+   Title screen — the Pokédex device performing a cold boot.
+   One CSS-choreographed sequence on mount (~2.5s), then the
+   screen settles into stillness. Every stagger is an
+   animation-delay driven by an inline `--i` index — no JS
+   timers, no effects. The global prefers-reduced-motion block
+   above collapses the durations; the block at the very end
+   also zeroes the delays, so the booted screen simply appears.
+   ============================================================ */
+
+/* The screen lifts out of pure black. */
+.boot {
+  animation: boot-in 320ms ease-out both;
+}
+
+/* Film-grain tooth so the dark reads as glass, not a flat fill. */
+.boot-grain {
+  opacity: 0.04;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter%20id='n'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.8'%20numOctaves='2'%20stitchTiles='stitch'/%3E%3CfeColorMatrix%20type='saturate'%20values='0'/%3E%3C/filter%3E%3Crect%20width='100%25'%20height='100%25'%20filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 150px 150px;
+}
+
+/* Inner vignette — depth; the feeling of being inside the device. */
+.boot-vignette {
+  background: radial-gradient(
+    ellipse 72% 64% at 50% 46%,
+    transparent 56%,
+    rgba(0, 0, 0, 0.66) 100%
+  );
+}
+
+/* The cyan light wash — the device's one light source, rising on boot. */
+.boot-wash {
+  background: radial-gradient(
+    ellipse 52% 48% at 50% 40%,
+    rgba(56, 165, 233, 0.16),
+    transparent 70%
+  );
+  animation: boot-fade 1100ms 200ms ease-out both;
+}
+
+/* The scanner lens: cold and dark, then igniting to full glow. */
+.boot-lens {
+  background: var(--lens-gradient);
+  animation: boot-lens-ignite 800ms 160ms cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+@keyframes boot-lens-ignite {
+  0% {
+    filter: brightness(0.22) saturate(0.4);
+    box-shadow:
+      inset 0 0 0 rgba(255, 255, 255, 0),
+      inset 0 0 0 rgba(0, 0, 0, 0),
+      0 0 0 0 rgba(14, 165, 233, 0);
+  }
+  55% {
+    filter: brightness(1.8) saturate(1.15);
+  }
+  100% {
+    filter: brightness(1) saturate(1);
+    box-shadow:
+      inset 0 2px 5px rgba(255, 255, 255, 0.6),
+      inset 0 -4px 9px rgba(0, 0, 0, 0.5),
+      0 0 34px rgba(14, 165, 233, 0.5);
+  }
+}
+/* The specular hotspot — the glass catching light. */
+.boot-spec {
+  animation: boot-fade 320ms 560ms ease-out both;
+}
+
+/* HUD corner brackets snap in — the viewport becomes a viewfinder. */
+.boot-bracket {
+  animation: boot-bracket-in 400ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(180ms + var(--i) * 90ms);
+}
+@keyframes boot-bracket-in {
+  from { opacity: 0; transform: scale(1.5); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* The OS label and corner tags — quiet supporting reveals. */
+.boot-os  { animation: boot-fade 420ms 600ms ease-out both; }
+.boot-tag { animation: boot-fade 520ms 720ms ease-out both; }
+
+/* Diagnostic log lines reveal one by one. */
+.boot-line {
+  animation: boot-rise 340ms cubic-bezier(0.33, 1, 0.68, 1) both;
+  animation-delay: calc(540ms + var(--i) * 105ms);
+}
+
+/* Status LEDs flick on like physical switches. */
+.boot-led {
+  animation: boot-led-on 300ms linear both;
+  animation-delay: calc(1000ms + var(--i) * 125ms);
+}
+@keyframes boot-led-on {
+  0%   { opacity: 0.1; }
+  35%  { opacity: 1; }
+  48%  { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
+/* The hairline seam — an abstracted clamshell hinge — draws across. */
+.boot-seam {
+  transform-origin: left center;
+  animation: boot-seam-in 560ms 1280ms cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+@keyframes boot-seam-in {
+  from { opacity: 0; transform: scaleX(0); }
+  to   { opacity: 1; transform: scaleX(1); }
+}
+
+/* The wordmark assembles letter by letter — the hero beat. */
+.boot-char {
+  display: inline-block;
+  animation: boot-char-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(1380ms + var(--i) * 52ms);
+}
+@keyframes boot-char-in {
+  from { opacity: 0; transform: translateY(0.36em) scale(0.9); filter: blur(7px); }
+  to   { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+/* Subtitle and hint — the closing quiet reveals. */
+.boot-subtitle { animation: boot-rise 440ms 1820ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+.boot-hint     { animation: boot-fade 520ms 2180ms ease-out both; }
+
+/* The CTA materialises last, with the sequence's one small overshoot. */
+.boot-cta {
+  animation: boot-cta-in 460ms 2000ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes boot-cta-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* A terminal caret — the screen's one 'alive' element once booted. */
+.boot-caret {
+  animation: boot-caret 1.1s 2500ms steps(1, end) infinite;
+}
+@keyframes boot-caret {
+  0%, 49%   { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@keyframes boot-in   { from { opacity: 0; } to { opacity: 1; } }
+@keyframes boot-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes boot-rise {
+  from { opacity: 0; transform: translateY(9px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Reduced motion: the global block already collapses every duration;
+   zero the delays too so the booted screen appears at once — fully
+   composed and still, no staggered pop-in. The caret holds steady. */
+@media (prefers-reduced-motion: reduce) {
+  .boot,
+  .boot * {
+    animation-delay: 0ms !important;
+  }
+  .boot-caret {
+    animation: none !important;
+    opacity: 1;
+  }
+}
+
+/* Sprite intro — on hover the Pokémon springs up and wiggles, then settles
+   slightly lifted: a lively, Pokédex-style "it noticed you" reaction. */
+.sprite-intro {
+  transform-origin: center bottom;
+  transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes sprite-intro {
+  0% {
+    transform: scale(1) rotate(0deg) translateY(0);
+  }
+  20% {
+    transform: scale(1.13) rotate(-5deg) translateY(-7px);
+  }
+  40% {
+    transform: scale(1.09) rotate(4deg) translateY(-2px);
+  }
+  58% {
+    transform: scale(1.12) rotate(-3deg) translateY(-5px);
+  }
+  74% {
+    transform: scale(1.1) rotate(2deg) translateY(-3px);
+  }
+  88% {
+    transform: scale(1.11) rotate(-1deg) translateY(-4px);
+  }
+  100% {
+    transform: scale(1.11) rotate(0deg) translateY(-3px);
+  }
+}
+.group:hover .sprite-intro {
+  animation: sprite-intro 620ms ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .group:hover .sprite-intro {
+    animation: none;
+  }
+}
+
+/* 3D card depth — children float forward when the parent card tilts on hover. */
+.pop-out,
+.pop-medium,
+.pop-light {
+  transform: translateZ(0);
+  transition: transform var(--pop-duration) cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.group:hover .pop-out {
+  transform: translateZ(var(--pop-out));
+}
+.group:hover .pop-medium {
+  transform: translateZ(var(--pop-medium));
+}
+.group:hover .pop-light {
+  transform: translateZ(var(--pop-light));
+}
+@media (prefers-reduced-motion: reduce) {
+  .group:hover .pop-out,
+  .group:hover .pop-medium,
+  .group:hover .pop-light {
+    transform: none;
+  }
+}
+
+/* ============================================================
+   Polish — a shared entrance vocabulary and micro-interactions.
+   `.reveal` and `.stat-bar` stagger via an inline `--i` index.
+   ============================================================ */
+
+/* Staggered content reveal on mount — a soft rise. `backwards` fill hands
+   opacity back to normal CSS once the entrance is done (the discovery
+   grid's sibling-fade needs that control afterwards). */
+.reveal {
+  animation: fade-in 440ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 65ms);
+}
+
+/* Stat bars sweep-fill from empty on mount — `--fill` is the resting width,
+   held by the `both` fill once the bar has filled. */
+@keyframes bar-fill {
+  from {
+    width: 0;
+  }
+  to {
+    width: var(--fill, 0%);
+  }
+}
+.stat-bar {
+  animation: bar-fill 760ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+
+/* A one-shot pop — a count or badge acknowledging that it changed. */
+@keyframes count-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.count-pop {
+  animation: count-pop 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Tooltip — a quick fade + scale as it opens. */
+@keyframes tooltip-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+.tooltip-content {
+  animation: tooltip-in 130ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* A frozen spinner reads as broken — under reduced motion, breathe instead. */
+@keyframes loading-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .stat-bar {
+    animation-delay: 0ms !important;
+  }
+  .loading-ring {
+    animation: loading-pulse 1.4s ease-in-out infinite !important;
+  }
+}
