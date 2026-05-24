@@ -1,8 +1,9 @@
 # Pokémon Explorer
 
-A fast, responsive Pokémon app built on the [PokeAPI](https://pokeapi.co/docs/v2),
-with three views: a searchable/filterable discovery list, a single-Pokémon
-detail page, and a shareable side-by-side team comparison.
+A fast, responsive Pokémon app built on the [PokeAPI](https://pokeapi.co/docs/v2).
+Three core views — a searchable / filterable discovery list, a single-Pokémon
+detail page, and a shareable side-by-side team comparison — plus an
+experimental 3D walk-around easter egg.
 
 ## Run locally
 
@@ -28,30 +29,44 @@ npm run preview    # preview the production build
 | **lucide-react** | Tree-shakeable icon set; only the icons actually imported land in the bundle. |
 | **react-hotkeys-hook** | The single keyboard shortcut: `Esc` on a detail page navigates back. One hook beats a hand-rolled global listener. |
 | **Vitest + React Testing Library** | Same module graph as Vite, no second config to maintain. RTL keeps component tests behaviour-first. |
+| **R3F + @react-three/rapier + ecctrl** *(lazy)* | The `/world` route only. R3F is React's three.js renderer, rapier the wasm physics engine, ecctrl a physics-driven character controller with click-to-move mode. None of it touches the main bundle — `/world` is a lazy chunk visitors only pay for if they open it. |
 
 ## Views
 
-1. **Discovery (`/`)** — a paginated grid (40 at a time). A global name search
-   across the whole Pokédex (debounced, live), a multi-select type combo box,
-   generation / colour / habitat filters, a sort (by number or name), and
-   clickable type chips. An "Add to Team" toggle capped at three. Every
-   filter, the sort, and the page all live in the URL, with an active-filter
-   tag row you can clear individually or all at once.
-2. **Detail (`/pokemon/:name`)** — official artwork, types, height / weight,
-   abilities (with a hidden badge), base stats shown as both an accessible
-   text list and a radar chart, the full evolution line, and a type-matchup
-   panel (Weak to / Resists / Immune to).
-3. **Team (`/team`)** — the team is encoded in the URL (`?team=a,b,c`), so
-   the page is shareable. Overlaid radar plus a comparison table that
-   highlights the highest value in each stat. "Copy share link" with a
-   clipboard fallback, and per-member removal.
+1. **Discovery (`/`)** — a paginated grid (40 at a time, `limit`/`offset`).
+   Global name search across the whole Pokédex (debounced, live), a
+   multi-select type combo box, generation / colour / habitat filters,
+   sort by number or name, and clickable type chips. An "Add to Team"
+   toggle capped at three per the spec. Every filter, the sort, and the
+   page all live in the URL, with an active-filter tag row you can clear
+   individually or all at once.
+2. **Detail (`/pokemon/:name`)** — official artwork, types (with the
+   colour chips the spec asked for), height / weight, abilities (with a
+   hidden badge), base stats shown as **both** an accessible text list
+   **and** a radar chart, the full evolution line, and a defensive
+   type-matchup panel (Weak to / Resists / Immune to).
+3. **Team (`/team`)** — the team is encoded in the URL (`?team=a,b,c`),
+   so the page is shareable per the spec's "send it to your friends"
+   requirement. Overlaid radar plus a comparison table with a **Total**
+   row and the highest value in each stat highlighted in emerald. "Copy
+   share link" with a clipboard fallback, plus per-member removal.
+4. **World (`/world`)** *— experimental easter egg.* A real-time 3D walk
+   around a low-poly Viridian City on React Three Fiber, with physics on
+   rapier and a character controller from `ecctrl` in **PointToMove**
+   mode — *tap or click the ground* to walk there (works on desktop and
+   mobile alike; no keyboard required). A hover ring previews the click
+   target and a guide line connects the character to it. The team
+   Pokémon trail single-file behind the player as billboard sprites
+   with a gentle vertical bob. The whole route — R3F, drei, rapier
+   (wasm), ecctrl, and the two glb assets — is **lazy-loaded**, so the
+   main bundle is unchanged whether you visit it or not.
 
 ## Architecture decisions
 
 ### URL as the source of truth
 Pagination, every filter, the sort, the team list — all live in `search`
 params. The codec writes only non-default values (no `?page=1`, no empty
-strings), so the URLs stay clean and shareable. Every state is refresh-safe
+strings), so URLs stay clean and shareable. Every state is refresh-safe
 and back-button friendly out of the box. `Esc` on a detail page navigates
 back via a depth-aware hook, so a deep-linked detail page returns to a
 fresh `/` (not a blank history entry).
@@ -63,13 +78,13 @@ The `/team` route mirrors the store into its URL via a render-time
 on load and the page re-renders pointing at the canonical URL.
 
 ### No `useEffect` / `useMemo` / `useCallback`
-Strict project rule, end-to-end. Server data flows through TanStack Query;
+Strict project rule, end to end. Server data flows through TanStack Query;
 derived values are computed during render and recomputed on every render
-(React 19 is fine with this — most of these "memoised" values are cheap
-field reads anyway). The few previous-prop sync points use the official
-React "derive during render" pattern (`if (prev !== current) setX(current)`),
-not effects. The next list page is prefetched on hover/focus *intent*, not
-on mount.
+(React 19 handles it — most of these "memoised" values are cheap field
+reads anyway). The few previous-prop sync points use the official React
+"derive during render" pattern (`if (prev !== current) setX(current)`),
+not effects. The next list page is prefetched on hover/focus *intent*,
+not on mount.
 
 ### No prop drilling
 Three layers cover every cross-cutting need without threading props:
@@ -95,10 +110,11 @@ Three layers cover every cross-cutting need without threading props:
 
 ### Two list modes
 Plain browsing uses the API's `limit`/`offset` paging (cheap, paginated
-server-side). The moment a filter, a search, or a name sort is active, the
-list switches to a client mode: fetch the full species list once (~1.4k
-entries), paginate locally. The split keeps the "no filter" path
-lightweight without giving up the global filter / search experience.
+server-side). The moment a filter, a search, or a name sort is active,
+the list switches to a client mode: fetch the full species list once
+(~1.4k entries, ~11KB gzipped), paginate locally. The split keeps the
+"no filter" path lightweight without giving up the global filter / search
+experience the spec asks for.
 
 ### Accessibility floor
 Semantic HTML and landmarks; a skip link; `role="status"` / `role="alert"`
@@ -116,8 +132,8 @@ also a list and a table.
 - The native View Transitions API morphs the card sprite into the detail
   hero with a per-element `viewTransitionName` keyed by the Pokémon name.
 - The holographic 3D card tilt is the one JS-driven piece — and it writes
-  the rotation/translate straight to the ref'd DOM. Zero React state, zero
-  re-renders during a hover.
+  the rotation/translate straight to the ref'd DOM. Zero React state,
+  zero re-renders during a hover.
 - `prefers-reduced-motion` zeros every duration and every delay, so the
   reduced-motion experience is fully composed and still — not awkwardly
   half-animated.
@@ -130,24 +146,42 @@ also a list and a table.
 - Pokémon cries come from PokeAPI's cries repository on opening a detail
   page (not on hover — too loud).
 - Everything self-gates on `useSoundStore.enabled`, persisted. Hover
-  sounds are delay-cancellable so a fast skim across the grid stays quiet.
-  The `AudioContext` is guarded for jsdom so tests stay silent.
+  sounds are delay-cancellable so a fast skim across the grid stays
+  quiet. The `AudioContext` is guarded for jsdom so tests stay silent.
+
+### The `/world` 3D scene — how it stays lightweight
+- The whole R3F + rapier (wasm) + ecctrl + glb-assets stack lives in a
+  separately code-split chunk. `WorldCanvas` is `React.lazy`'d from
+  `WorldPage`; visitors who never open `/world` pay nothing.
+- **PointToMove control** (`ecctrl` mode) means no keyboard handlers and
+  no virtual joystick — `onClick` / `onPointerMove` on the city mesh
+  feed `useGame((s) => s.setMoveToPoint)`. Works identically on desktop
+  click and mobile touch.
+- **Team followers** read the player's pose straight from the Ecctrl
+  rigid-body ref each frame — no extra store, no per-frame syncing
+  layer. They lerp toward a slot single-file behind the character with
+  a small sine bob to fake "alive". Adding or removing a Pokémon mounts
+  / unmounts only the affected `<Follower>` (its own Suspense boundary
+  so a sprite texture fetch can't re-suspend the whole canvas).
+- The hover guide line updates its `BufferGeometry` imperatively in
+  `useFrame`, so the line tracks the avatar without re-rendering React.
 
 ## Testing approach
 
 The tests cover the surface area where a regression would be invisible:
 
-- **Pure logic** — the URL codec, the discovery filter pipeline, the team
-  operations, the stat-comparison row builder, the type-matchup damage
-  math, the evolution-chain flattener, and the formatters. These change
-  most often, and a silent bug here corrupts the rest of the app.
-- **Hook integration** — `useDiscovery` is exercised against API mocks for
-  search + filter + sort + pagination, end to end through the URL codec.
+- **Pure logic** — the URL codec, the discovery filter pipeline, the
+  team operations, the stat-comparison row builder, the type-matchup
+  damage math, the evolution-chain flattener, and the formatters. These
+  change most often, and a silent bug here corrupts the rest of the app.
+- **Hook integration** — `useDiscovery` is exercised against API mocks
+  for search + filter + sort + pagination, end to end through the URL
+  codec.
 - **Component behaviour** — the `TeamToggle` cap behaviour and the
-  disabled state. RTL queries by role / accessible name to keep the test
-  honest about a11y.
+  disabled state. RTL queries by role / accessible name to keep the
+  test honest about a11y.
 
-52 tests, ~2s on cold start.
+52 tests, ~2 s on cold start.
 
 ## Project structure
 
@@ -159,7 +193,8 @@ src/
 │   ├── ui/      Reusable primitives (Button, Sprite, TypeChip, …)
 │   ├── discovery/  Discovery-view subcomponents
 │   ├── detail/  Detail-view subcomponents
-│   └── team/    Team-view subcomponents
+│   ├── team/    Team-view subcomponents (incl. inline TeamPicker)
+│   └── world/   WorldCanvas + TeamFollowers (lazy 3D chunk)
 ├── context/     React Context for view-scoped state
 ├── hooks/       Query wrappers + small composed hooks
 ├── lib/         Pure logic: codec, formatters, colours, audio, …
@@ -171,12 +206,19 @@ src/
 
 ## Trade-offs / with more time
 
-- Each discovery card fetches its own detail (sprite + types) — an N+1
-  pattern, but kept honest by TanStack Query's dedup/cache and the
-  CDN-backed API. A bulk endpoint would remove it; PokeAPI doesn't offer
-  one.
+- The Discovery grid still does a per-card `getPokemon` for the type
+  chips and the accent colour — N+1 in the strict sense, but kept
+  honest by TanStack Query's dedup / cache and the CDN-backed API.
+  PokeAPI doesn't expose a REST bulk endpoint; the GraphQL endpoint
+  (`graphql.pokeapi.co`) would collapse it to a single request per
+  page and is the right next step.
 - No list virtualization — 40 items per page doesn't need it. A
-  virtualised "view the whole Pokédex on one page" mode would.
-- Tests cover the critical pure logic and one component end to end.
-  Broader component / integration coverage (especially Discovery and
-  Detail pages) would be the next step.
+  virtualised "all 1,300 species on one page" mode would.
+- Tests cover the critical pure logic, the evolution-chain reassembly,
+  and one component end to end. Broader Discovery / Detail page
+  integration coverage would be the next step.
+- `/world` is experimental — the trimesh collider on the city is honest
+  but heavy; convex hulls per building would be faster on mobile. The
+  Mixamo character ships with a walk clip baked into ash.glb only;
+  swapping in a separate Idle clip (the file is already there) and
+  crossfading would be a clean follow-up.

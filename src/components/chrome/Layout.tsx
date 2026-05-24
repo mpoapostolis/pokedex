@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet, ScrollRestoration } from 'react-router'
 import * as Separator from '@radix-ui/react-separator'
+import { Map } from 'lucide-react'
 import { useTeamStore } from '../../store/teamStore'
 import { MAX_TEAM } from '../../lib/team'
 import { cn } from '../../lib/cn'
@@ -48,7 +49,10 @@ export function Layout() {
               viewTransition
               end
               className={({ isActive }) =>
-                cn(navLink, isActive ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white')
+                cn(navLink, {
+                  'bg-white/10 text-white': isActive,
+                  'text-zinc-400 hover:text-white': !isActive,
+                })
               }
             >
               Discover
@@ -57,11 +61,10 @@ export function Layout() {
               to="/team"
               viewTransition
               className={({ isActive }) =>
-                cn(
-                  navLink,
-                  'flex items-center gap-2',
-                  isActive ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white',
-                )
+                cn(navLink, 'flex items-center gap-2', {
+                  'bg-white/10 text-white': isActive,
+                  'text-zinc-400 hover:text-white': !isActive,
+                })
               }
             >
               Team
@@ -69,14 +72,29 @@ export function Layout() {
                 key={count}
                 className={cn(
                   'count-pop rounded-md px-1.5 py-0.5 font-mono text-xs font-bold transition-colors',
-                  count > 0
-                    ? 'bg-emerald-500/15 text-emerald-300'
-                    : 'bg-white/10 text-zinc-400',
+                  {
+                    'bg-emerald-500/15 text-emerald-300': count > 0,
+                    'bg-white/10 text-zinc-400': count === 0,
+                  },
                 )}
                 aria-label={`${count} of ${MAX_TEAM} Pokémon selected`}
               >
                 {count}/{MAX_TEAM}
               </span>
+            </NavLink>
+            <NavLink
+              to="/world"
+              viewTransition
+              className={({ isActive }) =>
+                cn(navLink, 'inline-flex items-center gap-1.5', {
+                  'bg-white/10 text-white': isActive,
+                  'text-zinc-400 hover:text-white': !isActive,
+                })
+              }
+              title="Walk around Viridian City (experimental)"
+            >
+              <Map className="h-3.5 w-3.5" aria-hidden="true" />
+              World
             </NavLink>
             <Separator.Root
               orientation="vertical"

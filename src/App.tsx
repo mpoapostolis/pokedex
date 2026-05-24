@@ -9,6 +9,7 @@ import NotFoundPage from './pages/NotFoundPage'
 const DiscoveryPage = lazy(() => import('./pages/DiscoveryPage'))
 const PokemonDetailPage = lazy(() => import('./pages/PokemonDetailPage'))
 const TeamPage = lazy(() => import('./pages/TeamPage'))
+const WorldPage = lazy(() => import('./pages/WorldPage'))
 
 function Lazy({ children }: { children: ReactNode }) {
   return <Suspense fallback={<LoadingState />}>{children}</Suspense>
@@ -32,6 +33,9 @@ const router = createBrowserRouter([
       { index: true, element: <Lazy><DiscoveryPage /></Lazy> },
       { path: 'pokemon/:name', element: <Lazy><PokemonDetailPage /></Lazy> },
       { path: 'team', element: <Lazy><TeamPage /></Lazy> },
+      // The 3D walk-around is its own page — canvas + an inline team
+      // picker so adding/removing members never leaves the world.
+      { path: 'world', element: <Lazy><WorldPage /></Lazy> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

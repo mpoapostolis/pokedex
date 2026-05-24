@@ -1,5 +1,5 @@
 import { Link, Navigate, useSearchParams } from 'react-router'
-import { Check, Link2, Trash2, X } from 'lucide-react'
+import { ArrowUpRight, Check, Link2, Map, Trash2, X } from 'lucide-react'
 import { encodeTeam } from '../lib/team'
 import { displayName, officialArtwork, pokemonRoute, toStatMap } from '../lib/pokemon'
 import { useTeamStore } from '../store/teamStore'
@@ -50,9 +50,12 @@ export default function TeamPage() {
               <MemberGrid members={teamQuery.members} />
             </Reveal>
             <Reveal i={1}>
-              <TeamRadar members={loaded} />
+              <WorldHighlight />
             </Reveal>
             <Reveal i={2}>
+              <TeamRadar members={loaded} />
+            </Reveal>
+            <Reveal i={3}>
               <TeamComparison members={loaded} />
             </Reveal>
           </>
@@ -218,5 +221,38 @@ function TeamComparison({ members }: { members: LoadedTeamMember[] }) {
         team={members.map((m) => m.data)}
       />
     </section>
+  )
+}
+
+/** Highlight strip that points the user at the /world easter-egg with
+ *  their current team in tow. Sits between the roster and the radar so
+ *  it lands right where the eye looks after sizing up the team — visible
+ *  on every viewport (the canvas itself works on touch via PointToMove). */
+function WorldHighlight() {
+  return (
+    <Link
+      to="/world"
+      viewTransition
+      className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-emerald-400/30 bg-gradient-to-r from-emerald-500/15 via-emerald-500/[0.06] to-transparent p-4 transition hover:border-emerald-400/60 hover:from-emerald-500/20 focus-ring sm:p-5"
+    >
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-400/40 bg-emerald-500/10 text-emerald-300 sm:h-12 sm:w-12">
+        <Map className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="flex items-center gap-2 font-display text-sm font-bold text-white sm:text-base">
+          See your team in 3D
+          <span className="rounded-md border border-emerald-400/40 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-emerald-300">
+            New
+          </span>
+        </p>
+        <p className="mt-0.5 text-xs text-zinc-400 sm:text-sm">
+          Walk through Viridian City with your roster trailing behind.
+        </p>
+      </div>
+      <ArrowUpRight
+        className="h-5 w-5 shrink-0 text-emerald-300 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+        aria-hidden="true"
+      />
+    </Link>
   )
 }
